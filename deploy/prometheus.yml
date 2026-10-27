@@ -1,0 +1,8 @@
+# Prometheus scrapes the EMS platform itself (not the meters).
+# Meters are scraped by the edge; Prometheus watches the edge, API, and brokers.
+global: {scrape_interval: 15s}
+scrape_configs:
+  - job_name: gridpulse-api
+    static_configs: [{targets: ["api:8000"]}]
+  - job_name: emqx
+    static_configs: [{targets: ["emqx:18083"]}]

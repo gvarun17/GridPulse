@@ -1,0 +1,78 @@
+{
+  "site": "mumbai-tower",
+  "days": 7,
+  "total_kwh": 76521.5,
+  "enpi_building_kwh_per_m2": {
+    "enpi": 2.5507,
+    "unit": "kWh/m2"
+  },
+  "enpi_plant_kwh_per_unit": null,
+  "peak": {
+    "peak_kw": 1073.1,
+    "demand_charge": 19316.52,
+    "currency_note": "demand_rate is $/kW-month from the site tariff (models.py)"
+  },
+  "baseline": {
+    "intercept_kwh": 9277.59,
+    "per_cdd_kwh": 381.98,
+    "per_production_unit_kwh": 0.0,
+    "r_squared": 0.075,
+    "n_days": 6,
+    "dropped_constant_predictors": [
+      "production"
+    ],
+    "note": "R2 < 0.7 means the baseline does not explain the site well \u2014 do not claim savings from it."
+  },
+  "mv_last_day": {
+    "predicted_kwh": 10927.7,
+    "actual_kwh": 10874.9,
+    "savings_kwh": 52.8,
+    "savings_pct": 0.48
+  },
+  "carbon": {
+    "kwh": 76521.472,
+    "location_based_tco2e": 54.33,
+    "market_based_tco2e": 62.748,
+    "location_factor_kg_per_kwh": 0.71,
+    "market_factor_kg_per_kwh": 0.82,
+    "renewable_kwh_with_recs": 0.0,
+    "factor_note": "ILLUSTRATIVE factors \u2014 replace with the issuing authority's current edition and record it before any real ESG report."
+  },
+  "forecast_next_day_kw": [
+    200.6,
+    287.0,
+    288.7,
+    284.6,
+    288.4,
+    203.8,
+    209.6,
+    273.8,
+    297.6,
+    366.5,
+    480.8,
+    655.9,
+    799.4,
+    950.1,
+    977.4,
+    983.4,
+    892.1,
+    648.2,
+    501.1,
+    372.8,
+    270.9,
+    254.4,
+    223.9,
+    208.9
+  ],
+  "peak_shave_plan": {
+    "original_peak_kw": 983.4,
+    "shaved_peak_kw": 885.1,
+    "peak_reduction_kw": 98.3
+  },
+  "gated_bess_commands_sample": [],
+  "faults_injected": {
+    "gap": false,
+    "drift": false
+  },
+  "note": "Demo numbers are simulated. Replace simulator with real meters before any real claim."
+}
