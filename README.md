@@ -33,15 +33,105 @@ factors, and savings percentages in this repo are illustrative defaults.
 Replace them with your utility tariff and the issuing authority's current
 emission-factor edition before any real finance or ESG report.
 
-## 2. Run it in 2 minutes (no Docker, no pip install)
+## 2. Setup and execution — step by step
+
+There are two paths. **Path A is the verified, recommended start** — it runs
+on any laptop with Python only, no Docker and no `pip install`. Path B is
+the full production-shaped stack, and needs Docker.
+
+### Prerequisites
+
+- Python 3.10+ (tested here on Python 3.12). Check with `python3 --version`.
+- Git.
+- For Path B only: Docker and Docker Compose (`docker compose version`).
+
+### Step 0 — Get the code (important: use the `dev` branch)
+
+The capstone lives on the `dev` branch — PR #1 into `main` is still open,
+so cloning the default branch alone will only give you the initial README.
 
 ```bash
-cd ems-capstone
-PYTHONPATH=src python3 -m gridpulse.cli --days 7
-# outputs: demo-output/report.json, demo-output/report.md, demo-output/demo.db
+git clone https://github.com/gvarun17/GridPulse.git
+cd GridPulse
+git checkout dev
+git pull
+ls
+# You should see: README.md, docker-compose.yml, src/, tests/, sql/, grafana/, deploy/, web/
 ```
 
-Then try the fault-injection exercises — these are the point of the capstone:
+If you already have the local `ems-capstone/` folder from this project,
+that folder *is* this repo content — just `cd` into it instead of cloning.
+
+### Path A — Step 1: Run the offline demo (no install)
+
+From the repo root, run:
+
+```bash
+PYTHONPATH=src python3 -m gridpulse.cli --days 7
+```
+
+`PYTHONPATH=src` is required — it tells Python where the `gridpulse`
+package lives. Without it you will get `ModuleNotFoundError: No module
+named 'gridpulse'`.
+
+### Path A — Step 2: Check the outputs
+
+The demo writes, all under `demo-output/`:
+
+- `report.md` — human-readable summary. Read this first.
+- `report.json` — the same results in machine-readable form.
+- `demo.db` — SQLite database with the grid energy steps.
+- `edge-buffer.jsonl` — the edge gateway's local buffer (one JSON reading
+  per line, written *before* any publish attempt).
+
+Expected Mumbai Tower result (7 days, default site):
+
+- Total energy: **76,521.5 kWh**
+- Peak: **1,073.1 kW**, demand charge **$19,316.52** at the illustrative tariff
+- Forecast peak shaved: **983.4 → 885.1 kW**
+- Carbon: **54.33 tCO2e** location-based, **62.75 tCO2e** market-based
+
+If your numbers differ slightly, that is the simulator's random variation
+only if you changed the seed — with the default seed they should match.
+
+### Path A — Step 3: Run the second site
+
+```bash
+PYTHONPATH=src python3 -m gridpulse.cli --days 7 --site pune-plant --outdir demo-output-pune
+```
+
+Expected Pune Plant result: **177,206.9 kWh**, peak **1,282.1 kW**,
+peak shave **140.8 kW** on the midday furnace spike, EnPI **4.12 kWh/unit**.
+Compare the two reports: same pipeline, different dominant loads, different
+EnPI denominator (kWh/m² vs kWh/unit).
+
+### Path A — Step 4: Run the tests
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+Expected: `Ran 11 tests … OK`. The tests cover validation, BMS safety
+interlocks, analytics, carbon dual-reporting, and peak shaving — all with
+the standard library only, so they need no extra install.
+
+### Path A — Step 5: Inspect the database (optional, but worth it)
+
+```bash
+sqlite3 demo-output/demo.db "SELECT date(substr(ts,1,10)), ROUND(SUM(value),1) FROM readings GROUP BY 1;"
+# If sqlite3 is not installed, use Python instead:
+python3 -c "
+import sqlite3
+db = sqlite3.connect('demo-output/demo.db')
+for row in db.execute(\"SELECT substr(ts,1,10), ROUND(SUM(value),1) FROM readings GROUP BY 1\"):
+    print(row)
+"
+```
+
+### Path A — Step 6: Try the fault-injection exercises
+
+These are the point of the capstone — a demo that never fails teaches
+nothing about a real EMS:
 
 ```bash
 PYTHONPATH=src python3 -m gridpulse.cli --days 7 --gap
@@ -52,11 +142,78 @@ PYTHONPATH=src python3 -m gridpulse.cli --days 7 --drift
 # (submeters vs incomer) catch it? What would you do in production?
 ```
 
-Run the tests:
+### Path B — Step 1: Install the full-stack dependencies (optional)
+
+Only needed for the FastAPI service and the Docker API container:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+pip install -r requirements.txt
 ```
+
+The offline demo and the tests do **not** need this step.
+
+### Path B — Step 2: Start the full stack with Docker
+
+From the repo root:
+
+```bash
+docker compose up -d
+docker compose ps
+# All services should show as running / healthy after a minute or so.
+```
+
+Then open:
+
+- Grafana: http://localhost:3000 — user `admin`, password `gridpulse`
+- EMQX dashboard: http://localhost:18083 — user `admin`, password `gridpulse`
+- Node-RED: http://localhost:1880
+- Prometheus: http://localhost:9090
+- TimescaleDB: `localhost:5432`, user `gridpulse`, password `gridpulse`, database `gridpulse`
+
+Grafana is provisioned with TimescaleDB and InfluxDB datasources and the
+`GridPulse EMS Overview` dashboard (load, daily energy, meter health, peak
+vs peak target).
+
+### Path B — Step 3: Run the API (optional)
+
+After running the offline demo once (so `demo-output/demo.db` exists):
+
+```bash
+PYTHONPATH=src uvicorn gridpulse.api:app --reload --port 8000
+curl http://localhost:8000/health
+curl http://localhost:8000/sites
+curl "http://localhost:8000/sites/mumbai-tower/summary"
+```
+
+Note: the API summary's total/daily figures come from the demo database.
+Its `peak_kw` field reads power-kW rows, which the offline CLI stores only
+as energy steps — so for peak, trust `demo-output/report.json`, not the
+API's peak field, until power rows are ingested via the full stack.
+
+### Path B — Step 4: Stop the stack
+
+```bash
+docker compose down
+# Add -v only if you want to delete the Docker volumes/data as well:
+# docker compose down -v
+```
+
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `ModuleNotFoundError: No module named 'gridpulse'` | Run from the repo root with `PYTHONPATH=src` in front of the command. |
+| `python3: command not found` / old Python | Install Python 3.10+ and use `python3`, not `python`. |
+| Only an initial `# GridPulse` README after cloning | You are on `main`. Run `git checkout dev`. |
+| `docker: command not found` | Path B is unavailable on that machine — use Path A, which is the verified path. |
+| A Grafana panel is empty in Docker mode | Check `docker compose ps` first, then that TimescaleDB is up and the ingestion path (EMQX → Kafka → TimescaleDB) has run. Empty panels mean no data has arrived yet, not necessarily a broken dashboard. |
+| Baseline R² is low in the demo report | Expected. Simulated days are near-identical, so weather/production explain almost nothing. The code reports R² and warns not to claim savings from a weak baseline — that warning is part of the lesson. |
+
+### What to do after it runs
+
+Work through §6 (Capstone exercises) in order: meter health, drift hunt,
+peak economics, the BMS safety check, a real-meter CSV swap, a second plant
+site, and production hardening (TLS, schema registry, hourly rollups).
 
 ## 3. Stack map — every tool from the deep dive, where it lives
 
