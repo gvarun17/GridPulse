@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>GridPulse EMS — demo console</title>
+<style>body{font-family:system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem}pre{background:#111;color:#eee;padding:1rem;overflow:auto}</style>
+</head><body>
+<h1>GridPulse EMS — demo console</h1>
+<p>This page is the lightweight workflow app. Grafana (port 3000 in docker mode) is the operations dashboard; this page is for the demo report and gated commands.</p>
+<p>Run the offline demo first, then open <code>demo-output/report.json</code> below, or start the API and use <code>/sites/mumbai-tower/summary</code>.</p>
+<pre id="out">Run:  PYTHONPATH=src python3 -m gridpulse.cli --days 7
+Then paste demo-output/report.json here, or fetch it from the API.</pre>
+<script>
+fetch('../demo-output/report.json').then(r=>r.json()).then(d=>{
+  document.getElementById('out').textContent = JSON.stringify(d, null, 2);
+}).catch(()=>{});
+</script>
+</body></html>

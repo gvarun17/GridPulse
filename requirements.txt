@@ -1,0 +1,10 @@
+# Core demo: stdlib only (no install needed).
+# Full stack: install per service. Versions are floors, not pins — pin in production.
+fastapi>=0.110
+uvicorn>=0.29
+paho-mqtt>=2.0
+psycopg[binary]>=3.1
+pymodbus>=3.6
+xgboost>=2.0
+ortools>=9.11
+confluent-kafka>=2.5
