@@ -1,7 +1,9 @@
-# NOTE: all images use :latest on request. That is a moving target:
-# a future pull can change behaviour (notably InfluxDB, whose v3 setup
-# differs from the v2 init variables used here). For a reproducible
-# deployment, pin full x.y.z versions instead.
+# NOTE: images use :latest on request, with one documented exception:
+# TimescaleDB publishes no :latest tag at all, so it uses latest-pg17
+# (its latest release on PostgreSQL 17). A future pull can change
+# behaviour (notably InfluxDB, whose v3 setup differs from the v2 init
+# variables used here). For a reproducible deployment, pin full
+# x.y.z versions instead.
 # GridPulse EMS — full production-shaped stack.
 # This file is for a machine WITH Docker. The offline demo (README §2) does
 # not need it. Do not run this on a laptop and expect the demo to need it.
@@ -30,7 +32,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
     volumes: [kafka-data:/var/lib/kafka/data]
   timescaledb:
-    image: timescale/timescaledb:latest
+    image: timescale/timescaledb:latest-pg17
     ports: ["5432:5432"]
     environment: [POSTGRES_USER=gridpulse, POSTGRES_PASSWORD=gridpulse, POSTGRES_DB=gridpulse]
     volumes: [ts-data:/var/lib/postgresql/data, ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro]
