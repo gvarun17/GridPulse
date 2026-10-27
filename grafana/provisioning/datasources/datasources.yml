@@ -1,6 +1,7 @@
 apiVersion: 1
 datasources:
   - name: TimescaleDB
+    uid: timescaledb
     type: postgres
     access: proxy
     url: timescaledb:5432
@@ -9,6 +10,7 @@ datasources:
     secureJsonData: {password: gridpulse}
     jsonData: {sslmode: disable, timescaledb: true}
   - name: InfluxDB
+    uid: influxdb
     type: influxdb
     access: proxy
     url: http://influxdb:8086

@@ -170,9 +170,36 @@ Then open:
 - Prometheus: http://localhost:9090
 - TimescaleDB: `localhost:5432`, user `gridpulse`, password `gridpulse`, database `gridpulse`
 
-Grafana is provisioned with TimescaleDB and InfluxDB datasources and the
-`GridPulse EMS Overview` dashboard (load, daily energy, meter health, peak
-vs peak target).
+Grafana is provisioned with TimescaleDB and InfluxDB datasources and three
+dashboards in the `GridPulse` folder (http://localhost:3000, admin /
+gridpulse):
+
+- **GridPulse EMS Overview** — total grid energy, peak load, sites
+  reporting, site load (kW), daily energy by site, top assets by energy,
+  and carbon location- vs market-based (illustrative 0.71 / 0.82 kg/kWh).
+- **GridPulse Site Detail** — pick a site from the dropdown: total energy,
+  peak, 90% peak target, meter-health gauge (% good readings), load vs
+  solar vs BESS, asset load, daily energy, and gated BESS commands.
+- **GridPulse Peak & Carbon** — daily peak by site, demand charge per
+  site (peak x the site's tariff from the `tariffs` table), daily carbon
+  by method, and a monthly peak & demand-charge table.
+
+All dashboards query the `readings` hypertable in TimescaleDB, so they
+are empty until data lands there. The full MQTT → Kafka → Timescale
+consumer is a deployment exercise, not a running service here — to see
+the dashboards with data now, seed TimescaleDB from the simulator:
+
+```bash
+pip install "psycopg[binary]"
+python3 tools/seed_timescale.py --days 7
+docker compose restart grafana   # picks up the new dashboards/datasource uid
+```
+
+The seed data starts 2026-10-20, so set a dashboard time range covering
+that week (the default last 7 days works only while that week is recent).
+Re-running the loader is safe: it replaces only its own seeded rows
+(`source = 'seed-timescale'`). The Site Detail commands panel stays empty
+until commands are written to the `commands` table via the full-stack path.
 
 ### Path B — Step 3: Run the API (optional)
 
@@ -206,7 +233,7 @@ docker compose down
 | `python3: command not found` / old Python | Install Python 3.10+ and use `python3`, not `python`. |
 | Only an initial `# GridPulse` README after cloning | You are on `main`. Run `git checkout dev`. |
 | `docker: command not found` | Path B is unavailable on that machine — use Path A, which is the verified path. |
-| A Grafana panel is empty in Docker mode | Check `docker compose ps` first, then that TimescaleDB is up and the ingestion path (EMQX → Kafka → TimescaleDB) has run. Empty panels mean no data has arrived yet, not necessarily a broken dashboard. |
+| A Grafana panel is empty in Docker mode | Check `docker compose ps` first, then that TimescaleDB has data: run `python3 tools/seed_timescale.py --days 7` (see the dashboards section above). Empty panels mean no data has arrived yet, not necessarily a broken dashboard. |
 | Baseline R² is low in the demo report | Expected. Simulated days are near-identical, so weather/production explain almost nothing. The code reports R² and warns not to claim savings from a weak baseline — that warning is part of the lesson. |
 
 ### What to do after it runs
@@ -315,7 +342,8 @@ src/gridpulse/
   cli.py          offline demo: whole loop in one command
 tests/            stdlib unittest: validation, safety, analytics, carbon, optimiser
 sql/schema.sql    TimescaleDB hypertables + seed assets/tariffs
-grafana/          provisioned datasources + EMS overview dashboard
+grafana/          provisioned datasources + 3 dashboards (overview, site detail, peak & carbon)
+tools/seed_timescale.py  seeds TimescaleDB readings so the dashboards show data
 deploy/           prometheus.yml, modbus_stub.py
 web/index.html    lightweight demo console (Grafana is the ops dashboard)
 ```
