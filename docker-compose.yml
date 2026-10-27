@@ -42,7 +42,9 @@ services:
     ports: ["1880:1880"]
     volumes: [nodered-data:/data]
   grafana:
-    image: grafana/grafana:11
+    # Grafana publishes full x.y.z tags (e.g. 11.4.3); the bare tag "11"
+    # does not resolve on Docker Hub and fails with "not found".
+    image: grafana/grafana:11.4.3
     ports: ["3000:3000"]
     environment: [GF_SECURITY_ADMIN_USER=admin, GF_SECURITY_ADMIN_PASSWORD=gridpulse]
     volumes:
