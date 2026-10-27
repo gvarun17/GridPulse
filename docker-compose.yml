@@ -65,6 +65,21 @@ services:
     ports: ["8000:8000"]
     environment: [PYTHONPATH=/app/src]
     depends_on: [timescaledb, emqx, kafka]
+  # Live ingestion: publisher streams simulator rows to EMQX, and the
+  # consumer bridges them to Kafka and then into TimescaleDB, so the
+  # Grafana dashboards fill themselves. No seed loader needed while
+  # these two services are running (and do not run both at once in an
+  # overlapping time range — dashboards sum by topic).
+  publisher:
+    build: .
+    command: python -m gridpulse.publisher --mqtt-host emqx --step-seconds 5
+    environment: [PYTHONPATH=/app/src]
+    depends_on: [emqx]
+  consumer:
+    build: .
+    command: python -m gridpulse.consumer --mode pipeline --mqtt-host emqx --kafka kafka:9092 --dsn postgresql://gridpulse:gridpulse@timescaledb:5432/gridpulse
+    environment: [PYTHONPATH=/app/src]
+    depends_on: [emqx, kafka, timescaledb]
 volumes:
   emqx-data: {}
   kafka-data: {}

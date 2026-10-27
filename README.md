@@ -185,9 +185,42 @@ gridpulse):
   by method, and a monthly peak & demand-charge table.
 
 All dashboards query the `readings` hypertable in TimescaleDB, so they
-are empty until data lands there. The full MQTT → Kafka → Timescale
-consumer is a deployment exercise, not a running service here — to see
-the dashboards with data now, seed TimescaleDB from the simulator:
+are empty until data lands there. There are two ways to fill it — pick
+one, not both in an overlapping time range, or the dashboards will
+double-count (they sum by topic, regardless of source).
+
+**Live pipeline (recommended now):** `docker compose up -d` also starts
+two new services, and no seed loader is needed:
+
+- `publisher` — streams one simulated day for Mumbai Tower to EMQX on
+  UNS topics (`gridpulse/mumbai-tower/<asset>/power_kw` and
+  `/energy_kwh`), one 15-minute step every 5 seconds, looping to the
+  next day. Published timestamps are publish time, so a simulated day
+  appears as a time-compressed day curve in Grafana's recent time range.
+- `consumer` — bridges EMQX `gridpulse/#` to Kafka topic `ems.readings`,
+  then consumes that topic, re-validates each reading, skips `bad`
+  readings, and inserts the rest into TimescaleDB. Code: `src/gridpulse/
+  consumer.py` (bridge + consumer, `--mode bridge|consume|pipeline`) and
+  `src/gridpulse/publisher.py`. Delivery is at-least-once: a crash
+  between insert and Kafka commit can redeliver a row, and `readings`
+  has no uniqueness constraint to deduplicate on.
+
+Check it is flowing:
+
+```bash
+docker compose ps                          # publisher + consumer up
+docker compose logs -f publisher consumer  # step published / subscribed lines
+docker compose logs kafka | head -20       # ems.readings topic activity
+```
+
+Then open Grafana and use a recent time range (last 1–6 hours): the
+curves build up live, one step every 5 seconds. To publish the other
+site instead, change the publisher command in `docker-compose.yml` to
+`--site pune-plant` and restart it. To check the message format with no
+broker at all: `PYTHONPATH=src python3 -m gridpulse.publisher --dry-run`.
+
+**Seed loader (offline / historical alternative):** if you are not
+running the live pipeline, seed TimescaleDB from the simulator:
 
 ```bash
 pip install "psycopg[binary]"
@@ -233,7 +266,7 @@ docker compose down
 | `python3: command not found` / old Python | Install Python 3.10+ and use `python3`, not `python`. |
 | Only an initial `# GridPulse` README after cloning | You are on `main`. Run `git checkout dev`. |
 | `docker: command not found` | Path B is unavailable on that machine — use Path A, which is the verified path. |
-| A Grafana panel is empty in Docker mode | Check `docker compose ps` first, then that TimescaleDB has data: run `python3 tools/seed_timescale.py --days 7` (see the dashboards section above). Empty panels mean no data has arrived yet, not necessarily a broken dashboard. |
+| A Grafana panel is empty in Docker mode | Check `docker compose ps` first: if publisher + consumer are running, check their logs and use a recent time range; if they are not running, run `python3 tools/seed_timescale.py --days 7` (see the dashboards section above). Empty panels mean no data has arrived yet, not necessarily a broken dashboard. |
 | Baseline R² is low in the demo report | Expected. Simulated days are near-identical, so weather/production explain almost nothing. The code reports R² and warns not to claim savings from a weak baseline — that warning is part of the lesson. |
 
 ### What to do after it runs
